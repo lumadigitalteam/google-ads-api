@@ -40,7 +40,13 @@ def get_google_ads_data(access_token):
         'query': query
     }
     response = requests.post(ads_url, headers=headers, json=payload)
-    return response.json().get('results', [])
+    
+    # Verifica il codice della risposta
+    if response.status_code == 200:
+        return response.json().get('results', [])
+    else:
+        print(f"Errore nella richiesta API Google Ads: {response.status_code}, {response.text}")
+        return []
 
 # Inserisci i dati in Airtable
 def send_to_airtable(campaigns):
