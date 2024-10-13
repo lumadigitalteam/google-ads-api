@@ -22,7 +22,13 @@ def get_access_token():
         'grant_type': 'refresh_token'
     }
     response = requests.post(url, data=payload)
-    return response.json().get('access_token')
+    if response.status_code == 200:
+        access_token = response.json().get('access_token')
+        print(f"Access token ottenuto con successo: {access_token}")
+        return access_token
+    else:
+        print(f"Errore durante il recupero dell'access token: {response.status_code}, {response.text}")
+        return None
 
 # Richiedi i dati delle campagne Google Ads
 def get_google_ads_data(access_token):
@@ -40,10 +46,12 @@ def get_google_ads_data(access_token):
         'query': query
     }
     response = requests.post(ads_url, headers=headers, json=payload)
-    
-    # Verifica il codice della risposta
+
+    # Logga la risposta
     if response.status_code == 200:
-        return response.json().get('results', [])
+        campaigns = response.json().get('results', [])
+        print(f"Dati delle campagne ottenuti con successo: {campaigns}")
+        return campaigns
     else:
         print(f"Errore nella richiesta API Google Ads: {response.status_code}, {response.text}")
         return []
@@ -59,22 +67,28 @@ def send_to_airtable(campaigns):
     for campaign in campaigns:
         airtable_data = {
             'fields': {
-                'Campaign Name': campaign['campaign.name'],
-                'Impressions': campaign['metrics.impressions'],
-                'Clicks': campaign['metrics.clicks'],
-                'Cost': campaign['metrics.cost_micros'] / 1000000,
+                'Campaign Name': campaign.get('campaign.name'),
+                'Impressions': campaign.get('metrics.impressions'),
+                'Clicks': campaign.get('metrics.clicks'),
+                'Cost': campaign.get('metrics.cost_micros') / 1000000,
                 'Date': datetime.now().strftime('%Y-%m-%d')
             }
         }
         response = requests.post(airtable_url, headers=headers, json=airtable_data)
+        # Logga la risposta di Airtable
         if response.status_code == 200:
-            print(f"Dati campagna aggiunti con successo per: {campaign['campaign.name']}")
+            print(f"Dati campagna aggiunti con successo per: {campaign.get('campaign.name')}")
         else:
-            print(f"Errore nell'aggiunta dei dati per: {campaign['campaign.name']}, Errore: {response.content}")
+            print(f"Errore nell'aggiunta dei dati per: {campaign.get('campaign.name')}, Errore: {response.content}")
 
 # Flusso principale
 if __name__ == "__main__":
     access_token = get_access_token()
-    campaigns = get_google_ads_data(access_token)
-    if campaigns:
-        send_to_airtable(campaigns)
+    if access_token:
+        campaigns = get_google_ads_data(access_token)
+        if campaigns:
+            send_to_airtable(campaigns)
+        else:
+            print("Nessuna campagna da inviare ad Airtable.")
+    else:
+        print("Impossibile ottenere un access token valido.")
